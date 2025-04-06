@@ -15,6 +15,8 @@ Esta aplicación utiliza Streamlit para simular un proceso de recuento de invent
 - openpyxl 
 - altair
 
+3) Ejecutar:
+
 `streamlit run {path}/mockup.py`
 
 Para acceder desde el móvil, asegúrate de que esté en la misma red WiFi y visita:
