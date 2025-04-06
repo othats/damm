@@ -1,6 +1,8 @@
 import streamlit as st  # type: ignore
 from PIL import Image, ImageDraw  # type: ignore
 import random
+import pandas as pd # type: ignore
+import altair as alt # type: ignore
 
 # Inicializamos las variables en session_state si no existen
 if "worker_id" not in st.session_state:
@@ -9,20 +11,20 @@ if "pasillo" not in st.session_state:
     st.session_state.pasillo = None
 
 zonas = {
-    "400": {"coordinates": (180, 470, 87, 44), "theoretical_count": 10},
-    "410": {"coordinates": (283, 470, 582, 44), "theoretical_count": 2977},
-    "420": {"coordinates": (255, 300, 804, 128), "theoretical_count": 15912},
-    "430": {"coordinates": (950, 75, 290, 204), "theoretical_count": 1748},
-    "440": {"coordinates": (255, 210, 804, 112), "theoretical_count": 10904},
-    "450": {"coordinates": (255, 105, 720, 58), "theoretical_count": 3761},
-    "460": {"coordinates": (255, 75, 718, 44), "theoretical_count": 9643},
-    "600": {"coordinates": (1045, 430, 995, 510), "theoretical_count": 22904},
-    "620": {"coordinates": (1130, 370, 367, 72), "theoretical_count": 7185},
-    "630": {"coordinates": (1525, 370, 450, 72), "theoretical_count": 11458},
-    "660": {"coordinates": (1130, 312, 377, 72), "theoretical_count": 21958},
-    "680": {"coordinates": (1130, 250, 377, 67), "theoretical_count": 32999},
-    "690": {"coordinates": (1520, 255, 461, 67), "theoretical_count": 95508},
-    "700": {"coordinates": (1222, 175, 711, 84), "theoretical_count": 11877},
+    "400": {"coordinates": (180, 470, 87, 44), "value": 10},
+    "410": {"coordinates": (283, 470, 582, 44), "value": 2977},
+    "420": {"coordinates": (255, 300, 804, 128), "value": 15912},
+    "430": {"coordinates": (950, 75, 290, 204), "value": 1748},
+    "440": {"coordinates": (255, 210, 804, 112), "value": 10904},
+    "450": {"coordinates": (255, 105, 720, 58), "value": 3761},
+    "460": {"coordinates": (255, 75, 718, 44), "value": 9643},
+    "600": {"coordinates": (1045, 430, 995, 510), "value": 22904},
+    "620": {"coordinates": (1130, 370, 367, 72), "value": 7185},
+    "630": {"coordinates": (1525, 370, 450, 72), "value": 11458},
+    "660": {"coordinates": (1130, 312, 377, 72), "value": 21958},
+    "680": {"coordinates": (1130, 250, 377, 67), "value": 32999},
+    "690": {"coordinates": (1520, 255, 461, 67), "value": 95508},
+    "700": {"coordinates": (1222, 175, 711, 84), "value": 11877},
 }
 
 labels = ["label.jpg", "label2.jpg", "label3.jpg", "label4.jpg", "label5.jpg", "label6.jpg", "label7.jpg"]
@@ -67,14 +69,14 @@ def asignacion_pasillo_page():
 # Función para el Menú Principal
 def main_menu():
     st.sidebar.title("Menú")
-    opcion = st.sidebar.radio("Elige una opción", ["Modo Almacenaje", "Modo Picking", "Dashboard Final"])
+    opcion = st.sidebar.radio("Elige una opción", ["Modo Almacenaje", "Modo Picking", "Dashboard"])
     st.write(f"Trabajador: {st.session_state.worker_id} | Pasillo asignado: {st.session_state.pasillo}")
     if opcion == "Modo Almacenaje":
         modo_almacenaje()
     elif opcion == "Modo Picking":
         modo_picking()
-    elif opcion == "Dashboard Final":
-        dashboard_final()
+    elif opcion == "Dashboard":
+        dashboard()
 
 # Función para Modo Almacenaje (inventario de pallets)
 def modo_almacenaje():
@@ -82,7 +84,7 @@ def modo_almacenaje():
 
     pasillo_asignado = st.session_state.pasillo
     info_zona = zonas[pasillo_asignado]
-    theoretical_stock = info_zona["theoretical_count"]
+    theoretical_stock = info_zona["value"]
 
     if "scanned_total" not in st.session_state:
         st.session_state.scanned_total = 0
@@ -163,7 +165,7 @@ def modo_picking():
 
     info_zona = zonas[pasillo_asignado]
 
-    theoretical_stock = info_zona["theoretical_count"]
+    theoretical_stock = info_zona["value"]
     
     captured_image = st.camera_input("")
     if captured_image is None:
@@ -171,45 +173,142 @@ def modo_picking():
         image1 = Image.open("images/picking.jpg")
         image2 = Image.open("images/picking2.jpg")
 
-        col1, col2 = st.columns(2)
+        if st.button("Tomar foto"):
 
-        with col1:
-            layout_vertical = image1.rotate(270, expand=True)
-            st.image(layout_vertical, caption="Original", use_container_width=True)
-        with col2:
-            st.image(image2, caption="Detección cantidades", use_container_width=True)
+            col1, col2 = st.columns(2)
 
-        if st.session_state.scan_count < 3:
-            scanned_value = theoretical_stock // 4  # División entera para evitar decimales
-        else:
-            # En el séptimo escaneo, se suma la diferencia restante
-            scanned_value = theoretical_stock - st.session_state.scanned_total
-            
-        st.write(f"**Valor leído:** {scanned_value} unidades")
-            
-        st.session_state.scanned_total += scanned_value
-        st.session_state.scan_count += 1
+            with col1:
+                layout_vertical = image1.rotate(270, expand=True)
+                st.image(layout_vertical, caption="Original", use_container_width=True)
+            with col2:
+                st.image(image2, caption="Detección cantidades", use_container_width=True)
 
-        if st.session_state.scanned_total == theoretical_stock:
-            st.success("¡Stock total verificado correctamente!")
-        elif st.session_state.scanned_total > theoretical_stock:
-            st.error("El total escaneado supera el stock teórico. Revisión necesaria.")
-        else:
-            st.info("Aún falta escanear más etiquetas para alcanzar el stock teórico.")
+            if st.session_state.scan_count < 3:
+                scanned_value = theoretical_stock // 4  # División entera para evitar decimales
+            else:
+                # En el séptimo escaneo, se suma la diferencia restante
+                scanned_value = theoretical_stock - st.session_state.scanned_total
+                
+            st.write(f"**Valor leído:** {scanned_value} unidades")
+                
+            st.session_state.scanned_total += scanned_value
+            st.session_state.scan_count += 1
 
-        # Mostrar la barra de progreso
-        progress_percentage = st.session_state.scanned_total / theoretical_stock
-        progress_value = min(int(progress_percentage * 100), 100)
-        st.progress(progress_value)
-        st.write(f"Avance: {st.session_state.scanned_total} / {theoretical_stock} unidades")
+            if st.session_state.scanned_total == theoretical_stock:
+                st.success("¡Stock total verificado correctamente!")
+            elif st.session_state.scanned_total > theoretical_stock:
+                st.error("El total escaneado supera el stock teórico. Revisión necesaria.")
+            else:
+                st.info("Aún falta escanear más etiquetas para alcanzar el stock teórico.")
+
+            # Mostrar la barra de progreso
+            progress_percentage = st.session_state.scanned_total / theoretical_stock
+            progress_value = min(int(progress_percentage * 100), 100)
+            st.progress(progress_value)
+            st.write(f"Avance: {st.session_state.scanned_total} / {theoretical_stock} unidades")
 
 # Función para el Dashboard Final
-def dashboard_final():
-    st.title("Dashboard Final")
-    st.write("Resumen consolidado del inventario:")
-    st.write("- Modo Almacenaje: Recuento correcto (etiquetas escaneadas).")
-    st.write("- Modo Picking: Recuento verificado por ML (con posibilidad de revisión manual).")
-    st.info("Aquí se mostrarían gráficos y alertas basados en los recuentos.")
+def dashboard():
+    st.title("Dashboard")
+    st.subheader("Stock total por pasillo")
+    
+    # Intentar leer el Excel
+    try:
+        df = pd.read_excel("Lx02.XLSX")
+    except Exception as e:
+        st.error("Error al leer Lx02.XLSX: " + str(e))
+        return
+
+    # Extraer el pasillo de la columna "Ubicación"
+    # Por ejemplo, "400-001-10" se convierte en "400"
+    df["Pasillo"] = df["Ubicación"].astype(str).str.split("-").str[0]
+
+    # Agrupar por pasillo y sumar el stock disponible
+    stock_by_pasillo = df.groupby("Pasillo")["Stock disponible"].sum().reset_index()
+    stock_by_pasillo = stock_by_pasillo[stock_by_pasillo["Stock disponible"] >= 0]
+    stock_by_pasillo = stock_by_pasillo[stock_by_pasillo["Pasillo"].str.isdigit()]
+
+
+    st.write("Stock total por pasillo:")
+    st.dataframe(stock_by_pasillo)
+
+
+    
+
+    # Crear gráfico de barras con Altair
+    chart = alt.Chart(stock_by_pasillo).mark_bar().encode(
+        x=alt.X("Pasillo:O", title="Pasillo"),
+        y=alt.Y("Stock disponible:Q", title="Stock total"),
+        tooltip=["Pasillo", "Stock disponible"]
+    ).properties(
+        width=400,
+        height=300,
+        title="Stock total por pasillo"
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+
+    heatmap_layout()
+
+    st.subheader("Detalles por Pasillo")
+    pasillo_list = sorted(stock_by_pasillo["Pasillo"].unique())
+    selected_pasillo = st.selectbox("Selecciona un pasillo para ver detalles:", pasillo_list)
+    
+    # Filtrar el DataFrame original para el pasillo seleccionado
+    df_detail = df[df["Pasillo"] == selected_pasillo][["Material", "Texto breve de material", "Stock disponible", "Ubicación", "Almacén", "Tipo almacén", "Área almacenamiento"]]
+    
+    # Agrupar por Material y Texto breve de material para evitar repeticiones
+    df_detail_grouped = df_detail.groupby(["Material", "Texto breve de material"]).agg({
+        "Stock disponible": "sum",
+        "Ubicación": lambda x: ", ".join(x.astype(str)),
+        "Almacén": "first",
+        "Tipo almacén": "first",
+        "Área almacenamiento": "first"
+    }).reset_index()
+    
+    st.write(f"Detalle de materiales en el pasillo {selected_pasillo}:")
+    st.dataframe(df_detail_grouped)
+
+
+def heatmap_layout():
+    st.write("Mapa de Calor del Almacén")
+    
+    # Cargar el layout (asegúrate de que layout.png esté en la carpeta)
+    try:
+        layout_img = Image.open("images/layout.png").convert("RGBA")
+    except Exception as e:
+        layout_img = Image.new("RGBA", (1600, 800), color="white")
+    
+    # Crear un overlay transparente del mismo tamaño
+    overlay = Image.new("RGBA", layout_img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    
+    # Determinar el máximo y mínimo valor para normalizar la escala
+    max_value = max(zona["value"] for zona in zonas.values())
+    min_value = min(zona["value"] for zona in zonas.values())
+    
+    # Recorrer cada zona y dibujar un rectángulo con un color interpolado
+    for zona in zonas.values():
+        x, y, w, h = zona["coordinates"]
+        val = zona["value"]
+        # Normalización: ratio entre 0 y 1
+        ratio = (val - min_value) / (max_value - min_value) if max_value != min_value else 0.5
+        # Interpolación: azul para ratio=0 y rojo para ratio=1
+        r = int(255 * ratio)
+        g = 0
+        b = int(255 * (1 - ratio))
+        # Usamos un valor alfa menor (por ejemplo, 50) para mayor transparencia
+        fill_color = (r, g, b, 50)
+        draw.rectangle([x, y, x+w, y+h], fill=fill_color)
+    
+    # Combinar overlay con el layout
+    heatmap_img = Image.alpha_composite(layout_img, overlay)
+    
+    st.image(heatmap_img, caption="Mapa de Calor del Almacén", use_container_width=True)
+
+
+
 
 # Lógica principal: Se muestra cada pantalla según el estado almacenado
 if st.session_state.worker_id is None:
